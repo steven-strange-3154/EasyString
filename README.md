@@ -3,7 +3,7 @@ A header that implements custom Python like string object in C++
 
 ### Description
 A custom string class that doesn't depends on NULL terminator and
-implements a easy to use Python like string object with all proper
+implements an easy to use Python like string object with all proper
 and expected string manipulation methods which are available in
 Python like str.upper(), str.lower(), str.title() etc.
 
