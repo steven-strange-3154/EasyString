@@ -1,0 +1,1095 @@
+#ifndef EASY_STRING
+#define EASY_STRING
+
+#include <iostream>
+#include <string>
+#include <cstdlib>
+#include <cstring>
+#include <cctype>
+#include <vector>
+#include <regex>
+
+/* class EasyString
+ * A custom string implementation of C++ written for practice purpose
+ *
+ * Author: Steven Strange
+ * Email: stevenstrange31545nk74@gmail.com
+ * Version: 1.1
+ * Status: Testing
+ * Note: Created only as a self practice project and certainly not for production use
+ * Date: 2021-01-05
+ */
+   
+class EasyString {
+    private:
+        char *data; // Base C string
+        size_t length; // Length of string
+        size_t buffer = 1024; // Read buffer
+
+        /* Internal function for spliting string with multi char delimiter */
+        char *spliter(char *str, char *delimiter) {
+            static char *sstr;
+            if(str != NULL) sstr = str;
+            if(sstr == NULL) return sstr;
+            char *e = strstr(sstr, delimiter);
+            if(e == NULL) {
+                char *tmp = sstr;
+                sstr = NULL;
+                return tmp;
+            }
+
+            *e = '\0';
+            char *tmp = sstr;
+            sstr = e + strlen(delimiter);
+
+            return tmp;
+        }
+
+    public:
+
+       /* class EasyString::Slice
+        * Custom Python array like object for storing parts after spliting a string
+        */
+       class Slice {
+           private:
+               size_t slength; // Object length
+               std::vector <EasyString> internal; // Internal vector
+
+           public:
+               /* Empty Slice constructor */
+               Slice() {
+                   slength = 0;
+               }
+
+               /* Slice constructor with variable arguments
+                * Can take any base data types and converts them
+                * EasyString and stores to internal vecort
+                */
+               template <typename... T>
+               Slice(T... strlist) {
+                   internal = {strlist...};
+                   slength = internal.size();
+               }
+
+               /* Method to add new element */
+               void append(EasyString str) {
+                   slength += 1;
+                   internal.push_back(str);
+               }
+
+               /* Sorts the internal vector
+                * if rev set to true will sort in reverse order
+                */
+               void sort(bool rev=false) {
+                   if(rev) {
+                       for(size_t i=0; i<slength; i++) {
+                           for(size_t j=i+1; j<slength; j++) {
+                               if(internal[i] < internal[j]) {
+                                   EasyString tmp = internal[i];
+                                   internal[i] = internal[j];
+                                   internal[j] = tmp;
+                               }
+                           }
+                       }
+                   } else {
+                       for(size_t i=0; i<slength; i++) {
+                           for(size_t j=i+1; j<slength; j++) {
+                               if(internal[i] > internal[j]) {
+                                   EasyString tmp = internal[i];
+                                   internal[i] = internal[j];
+                                   internal[j] = tmp;
+                               }
+                           }
+                       }
+                   }
+               }
+
+               /* Returns length of object */
+               size_t len() const {
+                  return slength;
+               }
+
+               /* Returns left index of passed string
+                * or -1 if object does not conatins passed string
+                */
+               int index(const EasyString &str) {
+                   for(int j=0; j<slength; j++) {
+                       if(internal[j] == str) return (int)j;
+                   }
+
+                   return -1;
+               }
+
+               /* Returns right index of passed string
+                * or -1 if object does not contains passed string
+                */
+               int rindex(const EasyString &str) {
+                   for(int j=slength-1; j>-1; j--) {
+                       if(internal[j] == str) return (int)j;
+                   }
+
+                   return -1;
+               }
+
+               /* Returns total occurrence number of passed string */
+               unsigned int count(const EasyString &str) {
+                   unsigned int c = 0;
+                   for(size_t j=0; j<slength; j++) {
+                       if(internal[j] == str) c++;
+                   }
+
+                   return c;
+               }
+
+               /* Overloading default stdout */
+               friend std::ostream &operator <<(std::ostream &os, const Slice &arr) {
+                   EasyString outline = '[';
+
+                   if(arr.len() > 0) {
+                       for(EasyString s: arr) outline += "'" + s.replace("\n", "\\n") + "', ";
+                       outline.erase(outline.len()-2, outline.len()-1);
+                   }
+                   outline += ']';
+                   os << outline;
+
+                   return os;
+               }
+
+               friend Slice operator +(Slice lhs, Slice rhs) {
+                   Slice tmp;
+
+                   for(EasyString s: lhs) tmp.append(s);
+                   for(EasyString s: rhs) tmp.append(s);
+
+                   return tmp;
+               }
+
+               /* Overloading for range based for loop
+                * returns address of start and end of base string
+                */
+               const EasyString *begin() const {
+                   return &internal[0];
+               }
+               const EasyString *end() const {
+                   return &internal[slength];
+               }
+
+               /* Returns copy of original internal vector */
+               std::vector <EasyString> vr() {
+                   return internal;
+               }
+
+               /* Overloading index operator */
+               EasyString operator [](size_t j) const {
+                   if(j >= slength) throw std::out_of_range("Index out of range");
+                   return internal[j];
+               }
+               EasyString &operator [](size_t j) {
+                   if(j >= slength) throw std::out_of_range("Index out of range");
+                   return internal[j];
+               }
+
+               Slice &operator =(const Slice &arr) {
+                   if(this == &arr) return *this;
+                   slength = arr.len();
+                   for(EasyString s: arr) internal.push_back(s);
+
+                   return *this;
+               }
+
+               Slice &operator +=(const Slice &arr) {
+                   slength += arr.len();
+                   for(EasyString s: arr) internal.push_back(s);
+
+                   return *this;
+               }
+
+               /* Removes and returns char of specified index
+                * or from the end if no index given
+                */
+               EasyString pop(const size_t &idx) {
+                   if(idx < 0 || idx > slength-1) throw std::out_of_range("Index out of range");
+                   EasyString str = internal[idx];
+                   internal.erase(internal.begin()+idx);
+                   slength--;
+                   return str;
+               }
+               EasyString pop() {
+                   if(slength == 0) throw std::logic_error("Slice is empty");
+                   return pop(slength-1);
+               }
+
+               /* Joins and returns all elements with passed string as delimiter */
+               EasyString join(const EasyString &delimiter) {
+                   EasyString tmp;
+
+                   for(EasyString s: internal) tmp += s + delimiter;
+                   tmp.erase(tmp.len()-delimiter.len(), tmp.len()-1);
+
+                   return tmp;
+               }
+
+               /* Returns a Slice object with all duplicate elements removed */
+               Slice set() {
+                   Slice splits;
+
+                   for(size_t j=0; j<slength; j++) {
+                       size_t count = splits.count(internal[j]);
+                       if(!count) splits.append(internal[j]);
+                   }
+
+                   return splits;
+               }
+       };
+
+       /* Empty constructor */
+       EasyString() {
+           length = 0;
+           data = new char[0];
+       }
+
+       /* Single char constructor */
+       EasyString(char c) {
+           length = 1;
+           data = new char(c);
+       }
+
+       /* C string constructor */
+       EasyString(const char *str) {
+           if(str) {
+               size_t n = 0;
+               while(str[n] != '\0') n++;
+               length = n;
+               data = new char[length];
+               strcpy(data, str);
+           } else {
+               length = 0;
+               data = new char[0];
+           }
+       }
+
+       /* C++ std::string constructor */
+       EasyString(const std::string &str) {
+           if(str.length()) {
+               length = str.length();
+               data = new char[length];
+               for(size_t j=0; j<length; j++) data[j] = str.c_str()[j];
+           } else {
+               length = 0;
+               data = new char[0];
+           }
+       }
+
+       /* Self string constructor */
+       EasyString(const EasyString &str) {
+           if(str.len()) {
+               length = str.len();
+               data = str.c_str();
+           } else {
+               length = 0;
+               data = new char[0];
+           }
+       }
+
+       /* Constructor for int data */
+       EasyString(const int &num) {
+           std::string str = std::to_string(num);
+           length = str.length();
+           data = new char[length];
+           for(size_t j=0; j<length; j++) data[j] = str[j];
+       }
+
+       /* Constructor for unsigned int data */
+       EasyString(const unsigned int &num) {
+           std::string str = std::to_string(num);
+           length = str.length();
+           data = new char[length];
+           for(size_t j=0; j<length; j++) data[j] = str[j];
+       }
+
+       /* Constructor for double data */
+       EasyString(const double &num) {
+           std::string str = std::to_string(num);
+           str.erase(str.find_last_not_of('0')+1, std::string::npos);
+           if(str[str.length()-1] == '.') str.erase(str.length()-1, std::string::npos);
+           length = str.length();
+           data = new char[length];
+           for(size_t j=0; j<length; j++) data[j] = str[j];
+       }
+
+       /* Constructor from Slice */
+       EasyString(const Slice &arr) {
+           EasyString tmp = '[';
+
+           if(arr.len() > 0) {
+               for(EasyString s: arr) tmp += "'" + s.replace("\n", "\\n") + "', ";
+               tmp.erase(tmp.len()-2, tmp.len()-1);
+           }
+           tmp += ']';
+
+           length = tmp.len();
+           data = new char[length];
+           strcpy(data, tmp.c_str());
+       }
+
+       /* Modify read buffer size */
+       void set_buffer(size_t buff) {
+           if(buff > 0) {
+               this->buffer = buff;
+           } else {
+               throw std::logic_error("Cannot set buffer to 0");
+           }
+       }
+
+       /* Erases specified portion of string */
+       void erase(const size_t s, const size_t e) {
+           std::string copy = data;
+           copy.erase(s, e);
+           length = copy.length();
+           delete data;
+           data = new char[length];
+           strcpy(data, copy.c_str());
+       }
+
+       /* Returns current buffer size */
+       size_t get_buffer() const {
+           return this->buffer;
+       }
+
+       /* Returns string length */
+       size_t len() const {
+           return length;
+       }
+
+       /* Returns left index of passed char
+        * or -1 if char does not exists
+        */
+       int index(char c) {
+           for(int j=0; j<length; j++) {
+               if(data[j] == c) return (int)j;
+           }
+
+           return -1;
+       }
+
+       /* Returns right index of passed char
+        * or -1 if char does not exists
+        */
+       int rindex(char c) {
+           for(int j=length-1; j>-1; j--) {
+               if(data[j] == c) return (int)j;
+           }
+
+           return -1;
+       }
+
+       /* Finds and returns index of first occurrence
+        * of passed string from left,
+        */
+       int find(const EasyString &str) {
+           std::string copy = data;
+
+           return copy.find(str.c_str());
+       }
+
+       /* Finds and returns index of first occurrence
+        * of passed string from right,
+        */
+       int rfind(const EasyString &str) {
+           std::string copy = data;
+
+           return copy.rfind(str.c_str());
+       }
+
+       /* Returns number of occurrence of passed string */
+       unsigned int count(const EasyString &str) {
+           std::string copy = data;
+           unsigned int c = 0;
+           for(unsigned int i=0; i<copy.size()-1; i++) {
+               unsigned int m = 0;
+               unsigned int n = i;
+               for(unsigned int j=0; j<str.len(); j++) {
+                   if(copy[n] == str.c_str()[j]) m++;
+                   n++;
+               }
+               if(m == str.len()) c++;
+           }
+
+           return c;
+       }
+
+       /* Returns base C string or char array */
+       char *c_str() const {
+           return data;
+       }
+
+       /* Overloading range based for loop
+        * returns address of first and last char
+        */
+       const char *begin() const {
+           return &data[0];
+       }
+       const char *end() const {
+           return &data[length];
+       }
+
+       /* Removes and returns char of given index
+        * or from end of string if no index given
+        */
+       char pop(size_t idx) {
+           if(idx < 0 || idx > length-1) throw std::out_of_range("Index out of range");
+           if(length == 0) throw std::logic_error("String is empty");
+           char *sstr = new char[length-1];
+           char pchar = data[idx];
+           for(size_t j=0; j<idx; j++) strncat(sstr, &data[j], 1);
+           for(size_t j=idx+1; j<length; j++) strncat(sstr, &data[j], 1);
+           delete[] data;
+           data = new char[length-1];
+           strcpy(data, sstr);
+           delete[] sstr;
+           length--;
+
+           return pchar;
+       }
+       char pop() {
+           if(length == 0) throw std::logic_error("String is empty");
+           return pop(length-1);
+       }
+
+       /* Overloading index operator */
+       char operator [](size_t j) const {
+           if(j >= length) throw std::out_of_range("Index out of range");
+           return data[j];
+       }
+       char &operator [](size_t j) {
+           if(j >= length) throw std::out_of_range("Index out of range");
+           return data[j];
+       }
+
+       /* Logical methods to check if string is of certain type
+        * like All char is empty space, alpha numeric, alpha only
+        * numeric only, has alpha, all upper case or lower case
+        * or proper title case, starts of ends with a specific char
+        * or string
+        */
+       bool isspace() {
+           return (this->strip().len() == 0);
+       }
+       bool isalpha() {
+           for(size_t j=0; j<length; j++) {
+               if(!std::isalpha(data[j])) return false;
+           }
+
+           return true;
+       }
+       bool isalnum() {
+           for(size_t j=0; j<length; j++) {
+               if(!(std::isdigit(data[j]) || std::isalpha(data[j]))) return false;
+           }
+
+           return true;
+       }
+       bool isdigit() {
+           for(size_t j=0; j<length; j++) {
+               if(!std::isdigit(data[j])) return false;
+           }
+
+           return true;
+       }
+       bool hasalpha() {
+           for(size_t j=0; j<length; j++) {
+               if(std::isalpha(data[j])) return true;
+           }
+
+           return false;
+       }
+       bool isupper() {
+           if(this->hasalpha()) {
+               return (this->upper() == *this);
+           }
+
+           return false;
+       }
+       bool islower() {
+           if(this->hasalpha()) {
+               return (this->lower() == *this);
+           }
+
+           return false;
+       }
+       bool istitle() {
+           if(this->hasalpha()) {
+               return (this->title() == *this);
+           }
+
+           return false;
+       }
+       bool startswith(const EasyString &str) {
+           if(str.len() > 1) {
+               if(length) return (this->substr(0, str.len()-1) == str);
+               return false;
+           }
+           if(str.len()) {
+               if(length) return data[0] == str[0];
+               return false;
+           }
+
+           return true;
+       }
+       bool endswith(const EasyString &str) {
+            if(str.len() > 1) {
+                if(length) return (this->substr(length-str.len(), length-1) == str);
+                return false;
+            }
+
+            if(str.len()) {
+                if(length) return data[length-1] == str[0];
+                return false;
+            }
+
+            return true;
+       }
+
+       /* Overloading default output stream stdout operator */
+       friend std::ostream &operator <<(std::ostream &os, const EasyString &str) {
+           if(str.len() > 0) {
+               for(size_t j=0; j<str.len(); j++) os << str.c_str()[j];
+           } else {
+               os << "";
+           }
+
+          return os;
+       }
+
+       /* Overloading default input stream stdin operator */
+       friend std::istream &operator >>(std::istream &is, EasyString &str) {
+           char *cstr = new char[str.get_buffer()];
+           is >> cstr;
+           str = EasyString(cstr);
+           delete[] cstr;
+
+           return is;
+       }
+
+       /* Overloading for arithmetic and logical comparation operators */
+       friend EasyString operator +(EasyString lhs, EasyString rhs) {
+           return EasyString(lhs) += rhs;
+       }
+       friend EasyString operator +(EasyString lhs, char rhs) {
+           return EasyString(lhs) += EasyString(rhs);
+       }
+       friend EasyString operator +(EasyString lhs, const char *rhs) {
+           return EasyString(lhs) += EasyString(rhs);
+       }
+       friend EasyString operator +(char lhs, EasyString rhs) {
+           return EasyString(lhs) += rhs;
+       }
+       friend EasyString operator +(const char *lhs, EasyString rhs) {
+           return EasyString(lhs) += rhs;
+       }
+
+       friend bool operator ==(const EasyString &lhs, const EasyString &rhs) {
+           if(lhs.len() != rhs.len()) return false;
+           size_t len = lhs.len();
+           size_t idx = 0;
+           while((idx < len) && (lhs[idx] == rhs[idx])) idx++;
+           return (idx == len);
+       }
+       friend bool operator ==(const EasyString &lhs, char rhs) {
+           return (lhs == EasyString(rhs));
+       }
+       friend bool operator ==(const EasyString &lhs, const char *rhs) {
+           return (lhs == EasyString(rhs));
+       }
+       friend bool operator ==(char lhs, const EasyString &rhs) {
+           return (EasyString(lhs) == rhs);
+       }
+       friend bool operator ==(const char *lhs, const EasyString &rhs) {
+           return (EasyString(lhs) == rhs);
+       }
+
+       friend bool operator >(const EasyString &lhs, const EasyString &rhs) {
+           size_t len = (lhs.len() > rhs.len()) ? lhs.len() : rhs.len();
+           size_t idx = 0;
+           while((idx < len) && (lhs[idx] == rhs[idx])) idx++;
+           if(idx == len) return (lhs.len() > rhs.len());
+           if ((('A'<=lhs[idx]&&lhs[idx]<='Z') || ('a'<=lhs[idx]&&lhs[idx]<='z')) &&
+               (('A'<=rhs[idx]&&rhs[idx]<='Z') || ('a'<=rhs[idx]&&rhs[idx]<='z'))) {
+               char x = (lhs[idx] & ~32);
+               char y = (rhs[idx] & ~32);
+               if (x != y) return (x > y);
+           }
+           
+           return lhs[idx] > rhs[idx];
+       }
+       friend bool operator >(const EasyString &lhs, char rhs) {
+           return (lhs > EasyString(rhs));
+       }
+       friend bool operator >(const EasyString &lhs, const char *rhs) {
+           return (lhs > EasyString(rhs));
+       }
+       friend bool operator >(char lhs, const EasyString &rhs) {
+           return (EasyString(lhs) > rhs);
+       }
+       friend bool operator >(const char *lhs, const EasyString &rhs) {
+           return (EasyString(lhs) > rhs);
+       }
+
+       friend bool operator !=(const EasyString &lhs, const EasyString &rhs) {
+           return !(lhs == rhs);
+       }
+       friend bool operator !=(const EasyString &lhs, char rhs) {
+           return !(lhs == EasyString(rhs));
+       }
+       friend bool operator !=(const EasyString &lhs, const char *rhs) {
+           return !(lhs == EasyString(rhs));
+       }
+       friend bool operator !=(char lhs, const EasyString &rhs) {
+           return !(EasyString(lhs) == rhs);
+       }
+       friend bool operator !=(const char *lhs, const EasyString &rhs) {
+           return !(EasyString(lhs) == rhs);
+       }
+
+       friend bool operator <(const EasyString &lhs, const EasyString &rhs) {
+           return !(lhs == rhs) && !(lhs > rhs);
+       }
+       friend bool operator <(const EasyString &lhs, char rhs) {
+           return !(lhs == rhs) && !(lhs > rhs);
+       }
+       friend bool operator <(const EasyString &lhs, const char *rhs) {
+           return !(lhs == rhs) && !(lhs > rhs);
+       }
+       friend bool operator <(char lhs, const EasyString &rhs) {
+           return !(lhs == rhs) && !(lhs > rhs);
+       }
+       friend bool operator <(const char *lhs, const EasyString &rhs) {
+           return !(lhs == rhs) && !(lhs > rhs);
+       }
+
+       friend bool operator <=(const EasyString &lhs, const EasyString &rhs) {
+           return !(lhs > rhs);
+       }
+       friend bool operator <=(const EasyString &lhs, char rhs) {
+           return !(lhs > rhs);
+       }
+       friend bool operator <=(const EasyString &lhs, const char *rhs) {
+           return !(lhs > rhs);
+       }
+       friend bool operator <=(char lhs, const EasyString &rhs) {
+           return !(lhs > rhs);
+       }
+       friend bool operator <=(const char *lhs, const EasyString &rhs) {
+           return !(lhs > rhs);
+       }
+
+       friend bool operator >=(const EasyString &lhs, const EasyString &rhs) {
+           return (lhs == rhs) || (lhs > rhs);
+       }
+       friend bool operator >=(const EasyString &lhs, char rhs) {
+           return (lhs == rhs) || (lhs > rhs);
+       }
+       friend bool operator >=(const EasyString &lhs, const char *rhs) {
+           return (lhs == rhs) || (lhs > rhs);
+       }
+       friend bool operator >=(char lhs, const EasyString &rhs) {
+           return (lhs == rhs) || (lhs > rhs);
+       }
+       friend bool operator >=(const char *lhs, const EasyString &rhs) {
+           return (lhs == rhs) || (lhs > rhs);
+       }
+
+       EasyString &operator =(const EasyString &str) {
+           if(this == &str) return *this;
+           length = str.len();
+           data = new char[length];
+           for(size_t j=0; j<length; j++) data[j] = str[j];
+  
+           return *this;
+       }
+       EasyString &operator +=(const EasyString &str) {
+           size_t len = length + str.len();
+           char *sstr = new char[len];
+           for(size_t i=0; i<length; i++) sstr[i] = data[i];
+           for(size_t j=0; j<str.len(); j++) sstr[length+j] = str[j];
+           length = len;
+           data = sstr;
+
+           return *this;
+       }
+
+       /* Returs a substring from specified start and end index
+        * end index must always be bigger than start and no index
+        * should be equal or larger than strings actual length
+        */
+       EasyString substr(const size_t &s, const size_t &e) {
+           if(s >= e) throw std::logic_error("Start position cannot be after or equal to end position");
+           if(s > length-1 || e > length-1) throw std::out_of_range("Index out of range");
+           EasyString str;
+           for(size_t j=s; j<=e; j++) str += data[j];
+           return str;
+       }
+
+       /* Returns part of string from right side starting from end to given index */
+       EasyString lcut(const size_t &e) {
+           if(e == 0) throw std::logic_error("Cutting position cannkt be 0");
+           if(e > length-1) throw std::out_of_range("Index out of range");
+           EasyString str;
+           for(size_t j=0; j<=e; j++) str += data[j];
+           return str;
+       }
+
+       /* Returns part of string from left side starting from start to given index */
+       EasyString rcut(const size_t &s) {
+           if(s >= length-1) throw std::out_of_range("Index out of range");
+           EasyString str;
+           for(size_t j=s; j<length; j++) str += data[j];
+           return str;
+       }
+
+       /* Replace all occurrence of a specified substring with another substring */
+       EasyString replace(const EasyString &target, const EasyString &value) {
+           std::string copy = data;
+           std::string search = target.c_str();
+           std::string repl = value.c_str();
+           size_t pos = 0;
+
+           while((pos = copy.find(search)) != std::string::npos) {
+               copy.replace(pos, search.length(), repl);
+               pos += repl.length();
+           }
+
+           return copy;
+       }
+
+       /* Returns sting with all char converted to uppercase */
+       EasyString upper() {
+           char *tmp = new char[length];
+           size_t j = 0;
+           strcpy(tmp, data);
+
+           while(tmp[j] != '\0') {
+               if(tmp[j] >= 'a' && tmp[j] <= 'z') tmp[j] -= 32;
+               j++;
+           }
+
+           return tmp;
+       }
+
+       /* Returns string with all char converted to lower case */
+       EasyString lower() {
+           char *tmp = new char[length];
+           size_t j = 0;
+           strcpy(tmp, data);
+
+           while(tmp[j] != '\0') {
+               if(tmp[j] >= 'A' && tmp[j] <= 'Z') tmp[j] += 32;
+               j++;
+           }
+
+           return tmp;
+       }
+
+       /* Returns string converted to proper title case */
+       EasyString title() {
+           char *tmp = new char[length];
+           char wp[] = " \n\r\t\v\f";
+           strcpy(tmp, data);
+
+           for(size_t j=0; j<length; j++) {
+               if((tmp[j] >= 'a' && tmp[j] <= 'z') ||
+                  (tmp[j] >= 'A' && tmp[j] <= 'Z')) {
+                   if(j == 0 || (strchr(wp, tmp[j-1]) != NULL)) {
+                       if(tmp[j] >= 'a' && tmp[j] <= 'z') tmp[j] -= 32;
+                   } else {
+                       if(tmp[j] >= 'A' && tmp[j] <= 'Z') tmp[j] += 32;
+                   }
+               }
+           }
+
+           return tmp;
+       }
+
+       /* Returns string with all lower case char converted to upper
+        * and upper case char converted to lower
+        */
+       EasyString swapcase() {
+           char *tmp = new char[length];
+           strcpy(tmp, data);
+
+           for(size_t j=0; j<length; j++) {
+               if(tmp[j] >= 'a' && tmp[j] <= 'z') tmp[j] -= 32;
+               else if(tmp[j] >= 'A' && tmp[j] <= 'Z') tmp[j] += 32;
+           }
+
+           return tmp;
+       }
+
+       /* Returns string with all empty space removed from end */
+       EasyString rstrip() {
+           std::string copy = data;
+           char wp[] = " \n\r\t\v\f";
+           size_t pos = copy.find_last_not_of(wp);
+           copy.erase(pos+1, length-1);
+
+           return copy;
+       }
+
+       /* Returns string with all empty space removed from start */
+       EasyString lstrip() {
+           std::string copy = data;
+           char wp[] = " \n\r\t\v\f";
+           size_t pos = copy.find_first_not_of(wp);
+           copy.erase(0, pos);
+
+           return copy;
+       }
+
+       /* Returns string with all empty space removed from both start and end */
+       EasyString strip() {
+           return this->lstrip().rstrip();
+       }
+
+       /* Returns stripped string with all extra empty spaces being replaced with single space */
+       EasyString trim() {
+           std::string tmp = this->strip().c_str();
+           std::regex wwp("[ \t]+");
+           tmp = std::regex_replace(tmp, wwp, " ");
+
+           return tmp;
+       }
+
+       /* Returns capitalized string */
+       EasyString capitalize() {
+           char *tmp = new char[length];
+           strcpy(tmp, data);
+
+           if(tmp[0] >= 'a' && tmp[0] <= 'z') tmp[0] -= 32;
+           for(size_t j=1; j<length; j++) {
+               if(tmp[j] >= 'A' && tmp[j] <= 'Z') tmp[j] += 32;
+           }
+
+           return tmp;
+       }
+
+       /* Returns a centered string witb space or given char */
+       EasyString center(const size_t &count, EasyString str=' ') {
+           EasyString filler;
+           for(size_t j=0; j<count; j++) filler += str;
+           return filler + *this + filler;
+       }
+
+       /* Returns string with specified number of zeros at start of string */
+       EasyString zfill(const size_t &count) {
+           EasyString filler;
+           for(size_t j=0; j<count; j++) filler += '0';
+           return filler + *this;
+       }
+
+       /* Returns a formatted string or all {} being replaced with values of passed args */
+       template <typename... T>
+       EasyString format(T... strlist) {
+           EasyString str;
+           std::vector <EasyString> printer = {strlist...};
+           std::vector <EasyString> args;
+           std::string mainstr = this->c_str();
+           std::string search = "{}";
+           size_t fcount = this->count("{}");
+           size_t pos = 0;
+           size_t idx = 0;
+           size_t rcu = 1;
+
+           for(size_t j=0; j<printer.size(); j++) args.push_back(printer[j]);
+           if(args.size() > 0) {
+               while((pos = mainstr.find(search)) != std::string::npos) {
+                   std::string repl = args[idx].c_str();
+                   mainstr.replace(pos, search.length(), repl);
+                   pos += repl.length();
+                   if(rcu == args.size()) break;
+                   idx++;
+                   rcu++;
+              }
+           } else {
+               throw std::logic_error("Format expects atleast one argument, zero given");
+           }
+           str = mainstr;
+           if(fcount < args.size()) {
+               throw std::logic_error("Too many values to unpack");
+           }
+
+           return str;
+       }
+
+       /* Returns a Slice containing splited parts of string with given string delimiter */
+       Slice split(EasyString delimiter=" ") {
+           Slice splits;
+           char *internal = new char[length];
+
+           strcpy(internal, data);
+           char *t = spliter(internal, delimiter.c_str());
+           while(t != NULL) {
+               splits.append(t);
+               t = spliter(NULL, delimiter.c_str());
+           }
+           delete[] internal;
+
+           return splits;
+       }
+
+       /* Returns a Slice containing parts of string splited at each lines or '\n'
+        * as delimiter
+        */
+       Slice splitlines() {
+           return split('\n');
+       }
+
+       /* Returns a Slice containing parts of string splited in
+        * three parts from left side
+        * with given string being center if exists
+        */
+       Slice partition(const EasyString &str) {
+           Slice splits;
+           int pos = this->find(str);
+
+           if(pos != -1) {
+               splits.append(this->substr(0, pos-1));
+               splits.append(str);
+               splits.append(this->substr(pos+str.len(), length-1));
+           } else {
+               splits.append(*this);
+               splits.append("");
+               splits.append("");
+           }
+
+           return splits;
+       }
+
+       /* Returns a Slice containing parts of string splited in
+        * three parts from right side
+        * with given string being center if exists
+        */
+       Slice rpartition(const EasyString &str) {
+           Slice splits;
+           int pos = this->rfind(str);
+
+           if(pos != -1) {
+               splits.append(this->substr(0, pos-1));
+               splits.append(str);
+               splits.append(this->substr(pos+str.len(), length-1));
+           } else {
+               splits.append("");
+               splits.append("");
+               splits.append(*this);
+           }
+
+           return splits;
+       }
+};
+
+/* Overloading default line reader function */
+void getline(std::istream &is, EasyString &str) {
+    EasyString tmp;
+    char c;
+    while(is.peek() != '\n') {
+        is.get(c);
+        tmp += c;
+    }
+    str = tmp;
+}
+
+/* Prints empty line */
+void print() {
+    std::cout << std::endl;
+}
+
+/* Prints all passed elements separated with space
+ * supports only datatypes convertable to EasyString
+ */
+template <typename... T>
+void print(T... strlist) {
+    std::vector <EasyString> printer = {strlist...};
+    if(printer.size() > 1) {
+        EasyString tmp;
+        char discarded;
+        for(size_t j=0; j<printer.size(); j++) tmp += printer[j] + ' ';
+        discarded = tmp.pop(tmp.len()-1);
+        std::cout << tmp << std::endl;
+    } else {
+        std::cout << printer[0] << std::endl;
+    }
+}
+
+/* Prints empty */
+void print_f() {
+    std::cout << "";
+}
+
+/* Prints a formatted string with all {} being replaced
+ * with values of args starting from 2nd index
+ * supports only datatypes convertable to EasyString
+ */
+template <typename... T>
+void print_f(T... strlist) {
+    EasyString str;
+    std::vector <EasyString> printer = {strlist...};
+    std::vector <EasyString> args;
+    std::string mainstr = printer[0].c_str();
+    std::string search = "{}";
+    size_t fcount = printer[0].count("{}");
+    size_t pos = 0;
+    size_t idx = 0;
+    size_t rcu = 1;
+
+    for(size_t j=1; j<printer.size(); j++) args.push_back(printer[j]);
+    if(args.size() > 0) {
+        while((pos = mainstr.find(search)) != std::string::npos) {
+            std::string repl = args[idx].c_str();
+            mainstr.replace(pos, search.length(), repl);
+            pos += repl.length();
+            if(rcu == args.size()) break;
+            idx++;
+            rcu++;
+        }
+    }
+
+    str = mainstr;
+ 
+    if(fcount < args.size()) {
+        throw std::logic_error("Too many values to unpack");
+    }
+
+    std::cout << str;
+}
+
+/* Overloading multiplication operator */
+EasyString operator *(const EasyString &str, const int &mn) {
+    EasyString tmp;
+    if(mn < 0) throw std::logic_error("Negative multiplication not allowed");
+    if(mn > 0) {
+        for(size_t j=0; j<mn; j++) tmp += str.c_str();
+    }
+    return tmp;
+}
+EasyString operator *(const int &mn, const EasyString &str) {
+    return str * mn;
+}
+
+/* Returne EasyString from user input */
+EasyString input(size_t line=1) {
+    EasyString out;
+    EasyString tmp;
+    while(line--) {
+        getline(std::cin, tmp);
+        std::cin.ignore();
+        out += tmp + '\n';
+    }
+    char discarded = out.pop();
+
+    return out;
+}
+EasyString input(const EasyString &prompt, size_t line=1) {
+    std::cout << prompt;
+    return input(line);
+}
+
+#endif // EasyString
