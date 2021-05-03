@@ -26,6 +26,8 @@ EasyString(const EasyString &str)    // Copy constructor
 EasyString(const int &num)    // Integer constructor
 EasyString(const unsigned int &num)    // Unsigned integer constructor
 EasyString(const double &num)    // Double constructor
+EasyString(const EasyString::Slice &arr)    // Constructor from slice
+
 ```
 
 #### Sub class constructors
