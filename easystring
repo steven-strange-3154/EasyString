@@ -882,7 +882,10 @@ class EasyString {
        /* Returns string with specified number of zeros at start of string */
        EasyString zfill(const size_t &count) {
            EasyString filler;
-           for(size_t j=0; j<count; j++) filler += '0';
+           int gap = count - this->len();
+           if(gap > 0) {
+               for(int i=0; i<gap; i++) filler += '0';
+           }
            return filler + *this;
        }
 
