@@ -120,7 +120,7 @@ const EasyString *end() const    // Returns pointer to end of slice
 std::vector <EasyString> vr()    // Returns internal data vector
 EasyString::Slice set()    // Returns a slice with all duplicate elements being removed
 void append(EasyString str)    // Adds new elemnt at end of slice
-void set(bool rev=false)    // Sorts slice, sorts in reverse order if rev set to true
+void sort(bool rev=false)    // Sorts slice, sorts in reverse order if rev set to true
 ```
 
 #### Operators
